@@ -6,7 +6,7 @@ Start with **[overview.md](overview.md)**: what each piece is and how they talk.
 
 ## Puddle
 
-The Puddle is the only piece built so far. Its pages here are copies from the
+Its pages here are copies from the
 [puddle repository](https://github.com/ezp2p/puddle), made with `scripts/sync-doco.sh` there; change them there, not here.
 
 | | |
@@ -18,10 +18,21 @@ The Puddle is the only piece built so far. Its pages here are copies from the
 | [puddle/docs/groups.md](puddle/docs/groups.md) | Group chats between Puddles. |
 | [puddle/docs/profiles.md](puddle/docs/profiles.md) | How an owner appears to others, and choosing who sees what. |
 | [puddle/docs/files.md](puddle/docs/files.md) | Sending files, photos and videos (being built). |
+| [puddle/docs/ponds.md](puddle/docs/ponds.md) | Being a member of Ponds: joining, following, what is kept. |
 | [puddle/docs/objects.md](puddle/docs/objects.md) | The objects the owner API returns. |
 | [puddle/docs/storage.md](puddle/docs/storage.md) | What a Puddle keeps on disk. |
 | [puddle/docs/levee.md](puddle/docs/levee.md) | Levee, the relay a Puddle can sit behind (a design draft). |
 
-## Pond, Levee
+## Pond
 
-Not built yet. Their designs will live here as they are written.
+Text channels are built. These pages are copies from the [pond repository](https://github.com/ezp2p/pond), made with
+`scripts/sync-doco.sh` there; change them there, not here.
+
+| | |
+|---|---|
+| [pond/docs/design.md](pond/docs/design.md) | What a Pond is and does: invites, members, channels, events, `pondctl`, the database. |
+| [pond/api/pond.yaml](pond/api/pond.yaml) | The Pond API: what a member's Puddle calls. |
+
+## Levee
+
+Not built yet. Its design draft is [puddle/docs/levee.md](puddle/docs/levee.md).

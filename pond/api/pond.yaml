@@ -1,0 +1,235 @@
+openapi: 3.1.0
+info:
+  title: Pond API
+  version: 0.1.0
+  description: |
+    What a member's Puddle calls on a Pond (docs/design.md). Every request carries `X-Puddle-Signature`, made exactly as for
+    a request between Puddles (Puddle's docs/streams.md, "Request signatures"), signed for the Pond's id: a Pond's id is made
+    like a user id, from its key. Joining is the one exception, signed for `*`, since the Puddle does not know the Pond's id
+    until it has joined.
+
+    Anything that fails a check (no signature, a bad one, someone who is not a member, an unknown, used-up, expired or
+    revoked invite, a path that does not exist) gets the same `404` as a path that does not exist, so nobody learns anything
+    from a refusal.
+    Once a request is known to be from a member, mistakes are answered with `{"error": "<code>"}`.
+
+    Only GET and POST are used. Bodies are JSON, up to 32 KiB.
+servers:
+  - url: https://pond.example.org
+paths:
+  /pond/v1/join:
+    post:
+      summary: Join with an invite
+      description: |
+        Signed for `*`, by the newest key in `chain`. Spends one use of the invite, unless the sender is already a member, in
+        which case it spends nothing and only updates their keys and profile.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [invite, chain]
+              properties:
+                invite: { type: string, pattern: "^[a-z2-7]{26}$" }
+                chain: { type: string, description: "The Puddle's key chain, one record per line" }
+                profile: { $ref: "#/components/schemas/Profile" }
+      responses:
+        "200": { $ref: "#/components/responses/Info" }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { description: Not joined }
+  /pond/v1/keys:
+    post:
+      summary: The member's keys changed
+      description: Signed by the new key and proven by `chain`, which must belong to the member and be no older than the one held.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [chain]
+              properties:
+                chain: { type: string }
+      responses:
+        "204": { description: Recorded (an older chain is ignored) }
+  /pond/v1/info:
+    get:
+      summary: The Pond, the member, the channels and the newest event
+      responses:
+        "200": { $ref: "#/components/responses/Info" }
+  /pond/v1/channels/{channel}/messages:
+    get:
+      summary: History, newest first
+      parameters:
+        - { $ref: "#/components/parameters/Channel" }
+        - { name: before, in: query, schema: { type: integer, minimum: 1 }, description: Only messages with a lower id }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        "200":
+          description: The messages
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  messages: { type: array, items: { $ref: "#/components/schemas/Message" } }
+        "404": { description: "No such channel (`no_channel`)" }
+  /pond/v1/channels/{channel}/send:
+    post:
+      summary: Post a message
+      description: |
+        A second send with the same `nonce` from the same member posts nothing and answers with the first message, so a
+        Puddle that lost an answer can send again safely. Each member may send 5 a second, with bursts of up to 20 (`429`).
+      parameters:
+        - { $ref: "#/components/parameters/Channel" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: { type: string, description: "1 to 4000 characters once trimmed (`bad_text`)" }
+                nonce: { type: string, pattern: "^[A-Za-z0-9_-]{1,32}$" }
+      responses:
+        "200":
+          description: The message as posted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Message" }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { description: "No such channel (`no_channel`)" }
+        "429": { description: "Too many (`slow_down`)" }
+  /pond/v1/events:
+    get:
+      summary: What happened after an event, waiting for something to happen
+      description: |
+        Answers as soon as there is an event after `after`, with up to 200, or with none after 25 seconds. Ask again from the
+        `cursor` in the answer. `{"reset": true}` means `after` is older than the events kept (7 days): fetch `/info` and
+        history again rather than replaying.
+      parameters:
+        - { name: after, in: query, required: true, schema: { type: integer, minimum: 0 } }
+      responses:
+        "200":
+          description: Events, or a reset
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    required: [events, cursor]
+                    properties:
+                      events: { type: array, items: { $ref: "#/components/schemas/Event" } }
+                      cursor: { type: integer }
+                  - type: object
+                    required: [reset]
+                    properties:
+                      reset: { const: true }
+  /pond/v1/members:
+    get:
+      summary: Everyone in the Pond
+      responses:
+        "200":
+          description: The members, oldest first
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  members: { type: array, items: { $ref: "#/components/schemas/Member" } }
+  /pond/v1/profile:
+    post:
+      summary: Change how the member appears in this Pond
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [profile]
+              properties:
+                profile: { $ref: "#/components/schemas/Profile" }
+      responses:
+        "204": { description: Changed }
+        "400": { $ref: "#/components/responses/Error" }
+  /pond/v1/leave:
+    post:
+      summary: Stop being a member
+      description: Their messages stay. Joining again needs an invite.
+      responses:
+        "204": { description: Left }
+components:
+  parameters:
+    Channel:
+      name: channel
+      in: path
+      required: true
+      schema: { type: integer, minimum: 1 }
+  responses:
+    Info:
+      description: The Pond as the member sees it
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [pond, me, channels, cursor]
+            properties:
+              pond: { $ref: "#/components/schemas/Pond" }
+              me: { $ref: "#/components/schemas/Member" }
+              channels: { type: array, items: { $ref: "#/components/schemas/Channel" } }
+              cursor: { type: integer, description: The newest event; follow /pond/v1/events from here }
+    Error:
+      description: A mistake in a request from a member
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error: { type: string }
+  schemas:
+    Profile:
+      description: |
+        The profile the member chose for this Pond (Puddle's api/wire/profile.yaml), or null for none. The Pond keeps it as
+        sent, if it is a JSON object of up to 16 KiB; a Puddle cleans what it receives before showing it.
+      oneOf:
+        - type: object
+        - type: "null"
+    Pond:
+      type: object
+      properties:
+        id: { type: string, description: 52 characters of base32, made from the Pond's key like a user id }
+        name: { type: string }
+        description: { type: string }
+    Member:
+      type: object
+      properties:
+        id: { type: string, description: The member's user id }
+        profile: { $ref: "#/components/schemas/Profile" }
+        joined: { type: integer, description: ms }
+    Channel:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string, pattern: "^[a-z0-9-]{1,32}$" }
+        topic: { type: string }
+        position: { type: integer }
+    Message:
+      type: object
+      properties:
+        id: { type: integer, description: Increasing across the whole Pond }
+        channel: { type: integer }
+        author: { type: string, description: The author's user id }
+        text: { type: string }
+        ts: { type: integer, description: ms, by the Pond's clock }
+    Event:
+      type: object
+      required: [id, kind, data]
+      properties:
+        id: { type: integer }
+        kind: { enum: [message, channel, channel_deleted, member, member_left, pond] }
+        data:
+          description: |
+            message: a Message. channel: a Channel (made or changed). channel_deleted: {id}. member: a Member (joined, or a
+            new profile). member_left: {id}. pond: a Pond (new name or description).
