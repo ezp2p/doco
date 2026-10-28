@@ -44,4 +44,4 @@ Both share a few rules:
 - **Events:** messages, edits and deletions, signed by their author and delivered to each person in the chat; group
   events say who is in a group ([groups](puddle/docs/groups.md)).
 - **Profiles:** the one the owner chose for each place ([profiles](puddle/docs/profiles.md)).
-- **Files:** fetched in checked chunks from whoever has them ([files](puddle/docs/files.md)).
+- **Files:** fetched in checked chunks from whoever has them; sent by itself once, and again only with the holder's yes ([files](puddle/docs/files.md)).
