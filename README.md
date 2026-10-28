@@ -30,7 +30,7 @@ Text channels are built. These pages are copies from the [pond repository](https
 
 | | |
 |---|---|
-| [pond/docs/design.md](pond/docs/design.md) | What a Pond is and does: invites, members, channels, events, `pondctl`, the database. |
+| [pond/docs/design.md](pond/docs/design.md) | What a Pond is and does: invites, members, channels, events, versions, `pondctl`, the database. |
 | [pond/api/pond.yaml](pond/api/pond.yaml) | The Pond API: what a member's Puddle calls. |
 
 ## Levee

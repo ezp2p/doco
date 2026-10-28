@@ -13,6 +13,9 @@ info:
     from a refusal.
     Once a request is known to be from a member, mistakes are answered with `{"error": "<code>"}`.
 
+    Within /pond/v1 things are only added, and a Puddle ignores fields and event kinds it does not know; `/info` says which
+    additions a Pond has (`protocol`, `features`). A change an older Puddle would misread gets new paths, /pond/v2.
+
     Only GET and POST are used. Bodies are JSON, up to 32 KiB.
 servers:
   - url: https://pond.example.org
@@ -176,6 +179,15 @@ components:
             type: object
             required: [pond, me, channels, cursor]
             properties:
+              protocol:
+                type: integer
+                minimum: 1
+                description: |
+                  Which additions to /pond/v1 this Pond has; it goes up with each (docs/design.md, "Versions"). Missing means 1.
+              features:
+                type: array
+                items: { type: string }
+                description: Optional parts this Pond has. None are defined yet. Missing means none.
               pond: { $ref: "#/components/schemas/Pond" }
               me: { $ref: "#/components/schemas/Member" }
               channels: { type: array, items: { $ref: "#/components/schemas/Channel" } }
