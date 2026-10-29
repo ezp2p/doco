@@ -16,7 +16,8 @@ info:
     Within /pond/v1 things are only added, and a Puddle ignores fields and event kinds it does not know; `/info` says which
     additions a Pond has (`protocol`, `features`). A change an older Puddle would misread gets new paths, /pond/v2.
 
-    Only GET and POST are used. Bodies are JSON, up to 32 KiB.
+    Only GET and POST are used. Bodies are JSON, up to 32 KiB, except a send (64 KiB), beginning a file (256 KiB), and a
+    file's chunk, which is its bytes (up to 1 MiB).
 servers:
   - url: https://pond.example.org
 paths:
@@ -92,19 +93,113 @@ paths:
           application/json:
             schema:
               type: object
-              required: [text]
               properties:
-                text: { type: string, description: "1 to 4000 characters once trimmed (`bad_text`)" }
+                text:
+                  type: string
+                  description: "Up to 4000 characters once trimmed, and at least 1 unless there are files (`bad_text`). Required without files."
                 nonce: { type: string, pattern: "^[A-Za-z0-9_-]{1,32}$" }
+                files:
+                  type: array
+                  maxItems: 10
+                  description: |
+                    Files the message carries (docs/design.md, "Files"), each one whole on the Pond already (sent with
+                    /pond/v1/files/{file}). The size is the Pond's own; anything else in an entry is ignored.
+                  items: { $ref: "#/components/schemas/FileRef" }
       responses:
         "200":
           description: The message as posted
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Message" }
-        "400": { $ref: "#/components/responses/Error" }
+        "400": { description: "`bad_text`, `bad_file` (a name with a folder in it, a preview that is not base64...), `too_many_files`" }
         "404": { description: "No such channel (`no_channel`)" }
+        "409": { description: "`no_file`, with `file`: one of the files is not here whole; `files_off`: the Pond takes no files" }
         "429": { description: "Too many (`slow_down`)" }
+  /pond/v1/files/{file}:
+    post:
+      summary: Begin sending a file
+      description: |
+        Say a file's size and chunk hashes; the answer is which chunks the Pond still wants. Beginning one that is here
+        already, or partly, is how a Puddle picks up where it stopped. A file no message carries is thrown away a day after
+        it was begun.
+      parameters:
+        - { $ref: "#/components/parameters/File" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [size, chunks]
+              properties:
+                size: { type: integer, minimum: 1, description: "At most the Pond's `files.max_size`" }
+                chunks:
+                  type: string
+                  description: Base64 of the chunk hashes, 32 bytes each, in order. Their SHA-256 must be the file's id.
+      responses:
+        "200":
+          description: The chunks still wanted; none if the file is here whole
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  missing: { type: array, items: { type: integer } }
+        "400": { description: "`bad_file`: the hashes are not this file's, or do not fit the size" }
+        "409": { description: "`files_off`; or `other_size`: someone began it with another size" }
+        "413":
+          description: Larger than the Pond takes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { const: too_large }
+                  max: { type: integer }
+  /pond/v1/files/{file}/chunks:
+    get:
+      summary: A file's chunk hashes
+      description: |
+        Of a whole file a message in a channel carries (or one the member sent). Anything else is `404` (`no_file`).
+      parameters:
+        - { $ref: "#/components/parameters/File" }
+      responses:
+        "200":
+          description: The hashes, 32 bytes each, in order
+          content:
+            application/octet-stream: {}
+        "404": { description: "`no_file`" }
+  /pond/v1/files/{file}/chunks/{n}:
+    get:
+      summary: One chunk of a file
+      description: As for its hashes. Each member may fetch or send 20 chunks a second, with bursts of 64 (`429`).
+      parameters:
+        - { $ref: "#/components/parameters/File" }
+        - { $ref: "#/components/parameters/Chunk" }
+      responses:
+        "200":
+          description: Its bytes
+          content:
+            application/octet-stream: {}
+        "404": { description: "`no_file`, `no_chunk`" }
+        "429": { description: "`slow_down`" }
+    post:
+      summary: Send one chunk of a file
+      description: |
+        The body is the chunk's bytes: 1 MiB, or what is left for the last. It is kept only if it hashes to what the file
+        was begun with. Once every chunk is here the file is whole, and a message may carry it.
+      parameters:
+        - { $ref: "#/components/parameters/File" }
+        - { $ref: "#/components/parameters/Chunk" }
+      requestBody:
+        required: true
+        content:
+          application/octet-stream: {}
+      responses:
+        "204": { description: Kept (or the file was already whole) }
+        "400": { description: "`bad_chunk`: no such chunk, the wrong length, or not the bytes it should be" }
+        "404": { description: "`no_file`: not begun" }
+        "429": { description: "`slow_down`" }
   /pond/v1/events:
     get:
       summary: What happened after an event, waiting for something to happen
@@ -170,6 +265,17 @@ components:
       in: path
       required: true
       schema: { type: integer, minimum: 1 }
+    File:
+      name: file
+      in: path
+      required: true
+      description: The SHA-256 of its chunk hashes, as Puddle makes it (Puddle's docs/files.md, "The shape of a file")
+      schema: { type: string, pattern: "^[0-9a-f]{64}$" }
+    Chunk:
+      name: n
+      in: path
+      required: true
+      schema: { type: integer, minimum: 0 }
   responses:
     Info:
       description: The Pond as the member sees it
@@ -187,7 +293,8 @@ components:
               features:
                 type: array
                 items: { type: string }
-                description: Optional parts this Pond has. None are defined yet. Missing means none.
+                description: |
+                  Optional parts this Pond has. `files`: members may send files (docs/design.md, "Files"). Missing means none.
               pond: { $ref: "#/components/schemas/Pond" }
               me: { $ref: "#/components/schemas/Member" }
               channels: { type: array, items: { $ref: "#/components/schemas/Channel" } }
@@ -214,6 +321,13 @@ components:
         id: { type: string, description: 52 characters of base32, made from the Pond's key like a user id }
         name: { type: string }
         description: { type: string }
+        files:
+          type: object
+          description: What members may send, with `files` in `features`
+          properties:
+            max_size: { type: integer, description: "The largest file, in bytes; 0 means the admin has turned files off" }
+            chunk_size: { type: integer, description: "1048576" }
+            per_message: { type: integer, description: "10" }
     Member:
       type: object
       properties:
@@ -233,8 +347,27 @@ components:
         id: { type: integer, description: Increasing across the whole Pond }
         channel: { type: integer }
         author: { type: string, description: The author's user id }
-        text: { type: string }
+        text: { type: string, description: May be empty when there are files }
         ts: { type: integer, description: ms, by the Pond's clock }
+        files: { type: array, items: { $ref: "#/components/schemas/File" }, description: Left out when there are none }
+    FileRef:
+      type: object
+      required: [id, name, mime]
+      description: A file as the sender describes it in a send
+      properties:
+        id: { type: string, pattern: "^[0-9a-f]{64}$" }
+        name: { type: string, description: "A file name only (no / or \\), at most 255 bytes" }
+        mime: { type: string, description: "As the sender says; anything that is not a type/subtype becomes application/octet-stream" }
+        w: { type: integer, description: Width, for a photo or video }
+        h: { type: integer }
+        duration_ms: { type: integer, description: For a video or sound }
+        preview: { type: string, description: "Base64 of a tiny picture (at most 1400 characters)" }
+    File:
+      allOf:
+        - { $ref: "#/components/schemas/FileRef" }
+        - type: object
+          properties:
+            size: { type: integer, description: The size of the file as the Pond has it }
     Event:
       type: object
       required: [id, kind, data]
@@ -244,4 +377,4 @@ components:
         data:
           description: |
             message: a Message. channel: a Channel (made or changed). channel_deleted: {id}. member: a Member (joined, or a
-            new profile). member_left: {id}. pond: a Pond (new name or description).
+            new profile). member_left: {id}. pond: a Pond (new name or description, or new limits on files).
