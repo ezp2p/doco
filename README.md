@@ -4,6 +4,24 @@ Documentation about Puddles, Ponds, Levees and Streams.
 
 Start with **[overview.md](overview.md)**: what each piece is and how they talk.
 
+## The Puddle Protocol
+
+What every program says on the wire, written once: **[protocol/README.md](protocol/README.md)**, with
+[protocol/decisions.md](protocol/decisions.md) on why it exists (a specification and test vectors, not a shared
+library yet). These pages are copies from the `ezp2p/protocol` repository; change them there, not here.
+
+| | |
+|---|---|
+| [protocol/spec/00-overview.md](protocol/spec/00-overview.md) | Principles and versioning |
+| [protocol/spec/01-identity.md](protocol/spec/01-identity.md) | Ids, keys, the key chain |
+| [protocol/spec/02-signatures.md](protocol/spec/02-signatures.md) | Request signatures and answer receipts, byte for byte |
+| [protocol/spec/03-streams.md](protocol/spec/03-streams.md) | Puddle to Puddle |
+| [protocol/spec/04-devices.md](protocol/spec/04-devices.md) | A phone and its Puddle |
+| [protocol/spec/05-ponds.md](protocol/spec/05-ponds.md) | A Puddle and a Pond |
+| [protocol/spec/06-levee.md](protocol/spec/06-levee.md) | A Puddle behind a Levee |
+| [protocol/spec/07-drip.md](protocol/spec/07-drip.md) | What Drip can take from it |
+| [protocol/vectors/](protocol/vectors/) | Test vectors every implementation checks itself against |
+
 ## Puddle
 
 Its pages here are copies from the
@@ -35,4 +53,5 @@ Text channels are built. These pages are copies from the [pond repository](https
 
 ## Levee
 
-Not built yet. Its design draft is [puddle/docs/levee.md](puddle/docs/levee.md).
+Not built yet. Its design draft is [puddle/docs/levee.md](puddle/docs/levee.md); what it must agree on with everyone else,
+above all how it fits signed answers, is [protocol/spec/06-levee.md](protocol/spec/06-levee.md).

@@ -2,6 +2,8 @@
 
 Puddles is a chat platform with no server in the middle. Everyone runs their own.
 
+The wire between all of them is specified once, in the Puddle Protocol ([protocol/README.md](protocol/README.md)).
+
 ## The pieces
 
 - **Puddle**: the app on a person's own computer. It keeps their identity, friends, chats and files, and holds a port

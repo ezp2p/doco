@@ -1,0 +1,8 @@
+{
+  "about": "Device ids and check codes (spec/01-identity.md): an Ed25519 key from each 32-byte seed, its public key, base32(SHA-256(\"puddle-device-v1\\n\" || public key)), and the six-digit check code from the same hash.",
+  "devices": [
+    { "seed": "0000000000000000000000000000000000000000000000000000000000000000", "public_key": "3b6a27bcceb6a42d62a3a8d02a6f0d73653215771de243a63ac048a18b59da29", "id": "pmiix2ui4meomoeukjkixoxd5xrumxmdlipjeuvd7aig3ip5qnxa", "check": "681962" },
+    { "seed": "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20", "public_key": "79b5562e8fe654f94078b112e8a98ba7901f853ae695bed7e0e3910bad049664", "id": "cgrk4zdfk56uuw3mno4zciqsfsvt3fia5m6ucnqiycoudcduicdq", "check": "874148" },
+    { "seed": "fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0efeeedecebeae9e8e7e6e5e4e3e2e1e0", "public_key": "bafc71bead3ac5e4b63e9c8216ee71a34aaec65722eedbca728b4e9b3ccce396", "id": "3fu6wjgjapqclf4zfuum775psx6iar2lclnog6auop3enlhqy2wa", "check": "597348" }
+  ]
+}
